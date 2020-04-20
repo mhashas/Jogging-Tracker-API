@@ -1,13 +1,18 @@
 from django.urls import path
 from django.conf.urls import include
-from rest_framework import routers
-from api.views import UserViewSet, JogViewSet
+from rest_framework.urlpatterns import format_suffix_patterns
+from api.views import UserList, JogList, AuthRoleList, UserDetail, JogDetail, AuthRoleDetail
 
-router = routers.DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'jogs', JogViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
+    path('user/', UserList.as_view()),
+    path('user/<int:pk>', UserDetail.as_view()),
+    path('jogs/', JogList.as_view()),
+    path('jogs/<int:pk>', JogDetail.as_view()),
+    path('auth_role/', AuthRoleList.as_view()),
+    path('auth_role/<int:pk>', AuthRoleDetail.as_view()),
+    path('api-auth/', include('rest_framework.urls')),
 ]
+
+urlpatterns = format_suffix_patterns(urlpatterns)
+

@@ -1,26 +1,43 @@
-from rest_framework import permissions, viewsets
-from rest_framework.pagination import PageNumberPagination
-from django.http import HttpResponse
+from rest_framework import generics, permissions
 
-from api.serializers import ProfileSerializer, UserSerializer, JogSerializer
-from api.models import User, Jog
+from api.models import User, Jog, AuthRole
+from api.serializers import UserSerializer, JogSerializer, AuthRoleSerializer
 
-def index(request):
-    return HttpResponse("Hello, world. You're at the polls index.")
-
-class StandardPagination(PageNumberPagination):
-    page_size = 2
-    page_size_query_description = 'page_size'
-    max_page_size = 100
-
-class UserViewSet(viewsets.ModelViewSet):
+class UserList(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-class JogViewSet(viewsets.ModelViewSet):
+class JogList(generics.ListCreateAPIView):
     queryset = Jog.objects.all()
     serializer_class = JogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(user_id=self.request.user)
+
+class AuthRoleList(generics.ListCreateAPIView):
+    queryset = AuthRole.objects.all()
+    serializer_class = AuthRoleSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(user_id=self.request.user)
+
+class UserDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class JogDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Jog.objects.all()
+    serializer_class = JogSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class AuthRoleDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = AuthRole.objects.all()
+    serializer_class = AuthRoleSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
 
 

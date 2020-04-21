@@ -9,11 +9,14 @@ class AuthRoleSerializer(serializers.ModelSerializer):
         fields = ('id', 'user_id', 'role')
 
     def create(self, validated_data):
-        pass
-        user_data = validated_data.pop('user_id')
-        user = User.objects.create_user(**user_data)
-        profile, created = AuthRole.objects.update_or_create(user_id=user)
+        profile = AuthRole.objects.create(**validated_data)
         return profile
+
+    def update(self, instance : AuthRole, validated_data):
+        instance.role = validated_data.get('role', instance.role)
+        instance.save()
+        return instance
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

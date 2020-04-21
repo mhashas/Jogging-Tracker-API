@@ -1,5 +1,8 @@
 from rest_framework.permissions import BasePermission
 
+
+from api.models import AuthRole
+
 class IsOwnerOrReadOnly(BasePermission):
     """
     Custom permission to only allow owners of an object to edit it.
@@ -24,9 +27,25 @@ class IsCreatingHasAccessOrNoAccess(BasePermission):
     SAFE_METHODS = ['POST']
 
     def has_permission(self, request, view):
-        if (request.method in self.SAFE_METHODS or
-            (request.user and request.user.is_authenticated)
-            ):
+        if (request.method in self.SAFE_METHODS):
             return True
 
+        if (request.user and request.user.is_authenticated):
+            auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
+            if auth_role.role == AuthRole.RoleTypes.ADMIN or auth_role.role == AuthRole.RoleTypes.MANAGER:
+                return True
+
         return False
+
+class HasAccessOrNoAccess(BasePermission):
+
+    def has_permission(self, request, view):
+        if (request.user and request.user.is_authenticated):
+            auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
+            if auth_role.role == AuthRole.RoleTypes.ADMIN or auth_role.role == AuthRole.RoleTypes.MANAGER:
+                return True
+
+        return False
+
+
+

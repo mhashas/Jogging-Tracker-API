@@ -33,12 +33,37 @@ class IsAtLeastManagerOrNoAccess(BasePermission):
         if obj.user_id == request.user:
             return True
 
-        user_auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) #type: AuthRole
+        user_auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
         obj_auth_role = AuthRole.objects.get(user_id__exact=obj.user_id) # type: AuthRole
 
         # user auth role is at least MANAGER since has_permission method passed so grant access to users
         if obj_auth_role.role == AuthRole.RoleTypes.USER:
             return True
+        elif user_auth_role.role == AuthRole.RoleTypes.ADMIN:
+            return True
+
+        return False
+
+class HasAccessOrNoAccess(BasePermission):
+
+    def has_permission(self, request, view):
+        if (request.user and request.user.is_authenticated):
+            return True
+
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if obj.user_id == request.user:
+            return True
+
+        user_auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
+        obj_auth_role = AuthRole.objects.get(user_id__exact=obj.user_id) # type: AuthRole
+
+        if obj_auth_role.role == AuthRole.RoleTypes.USER:
+            if user_auth_role.role == AuthRole.RoleTypes.ADMIN or user_auth_role.role == AuthRole.RoleTypes.MANAGER:
+                return True
+            else:
+                return False
         elif user_auth_role.role == AuthRole.RoleTypes.ADMIN:
             return True
 

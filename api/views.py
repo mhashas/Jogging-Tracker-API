@@ -15,19 +15,10 @@ class JogList(generics.ListCreateAPIView):
     serializer_class = JogSerializer
     permission_classes = [base_permissions.IsAuthenticatedOrReadOnly]
 
-    def perform_create(self, serializer):
-        serializer.save(user_id=self.request.user)
-
 class AuthRoleList(generics.ListCreateAPIView):
     queryset = AuthRole.objects.all()
     serializer_class = AuthRoleSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
-
-    def perform_create(self, serializer):
-        serializer.save(user_id=self.request.user)
-
-    def perform_update(self, serializer):
-        pass
+    permission_classes = [permissions.IsAtLeastManagerOrNoAccess]
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
@@ -42,7 +33,7 @@ class JogDetail(generics.RetrieveUpdateDestroyAPIView):
 class AuthRoleDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = AuthRole.objects.all()
     serializer_class = AuthRoleSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsAtLeastManagerOrNoAccess]
 
 
 

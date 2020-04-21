@@ -42,8 +42,6 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class JogSerializer(serializers.ModelSerializer):
-    user_id = serializers.ReadOnlyField(source='user_id.pk')
-
     class Meta:
         model = Jog
         fields = ('id', 'user_id', 'date', 'distance', 'time', 'location')

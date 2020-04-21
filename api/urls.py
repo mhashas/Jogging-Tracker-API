@@ -1,5 +1,5 @@
 from django.urls import path
-from django.conf.urls import include
+from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.urlpatterns import format_suffix_patterns
 from api.views import UserList, JogList, AuthRoleList, UserDetail, JogDetail, AuthRoleDetail
 
@@ -11,7 +11,7 @@ urlpatterns = [
     path('jogs/<int:pk>', JogDetail.as_view()),
     path('auth_role/', AuthRoleList.as_view()),
     path('auth_role/<int:pk>', AuthRoleDetail.as_view()),
-    path('api-auth/', include('rest_framework.urls')),
+    path('token-auth/', obtain_auth_token, name='api_token_auth'),  # <-- And here
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

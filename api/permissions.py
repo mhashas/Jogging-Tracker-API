@@ -53,11 +53,16 @@ class HasAccessOrNoAccess(BasePermission):
         return False
 
     def has_object_permission(self, request, view, obj):
-        if obj.user_id == request.user:
+        if hasattr(obj, 'user_id'):
+            obj_user_id = obj.user_id
+        else:
+            obj_user_id = obj
+
+        if obj_user_id == request.user:
             return True
 
         user_auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
-        obj_auth_role = AuthRole.objects.get(user_id__exact=obj.user_id) # type: AuthRole
+        obj_auth_role = AuthRole.objects.get(user_id__exact=obj_user_id) # type: AuthRole
 
         if obj_auth_role.role == AuthRole.RoleTypes.USER:
             if user_auth_role.role == AuthRole.RoleTypes.ADMIN or user_auth_role.role == AuthRole.RoleTypes.MANAGER:

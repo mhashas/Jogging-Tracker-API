@@ -12,12 +12,12 @@ class UserList(generics.ListCreateAPIView):
 class JogList(generics.ListCreateAPIView):
     queryset = Jog.objects.all()
     serializer_class = JogSerializer
-    permission_classes = [permissions.IsAtLeastManagerOrNoAccess]
+    permission_classes = [permissions.HasAccessOrNoAccess]
 
 class AuthRoleList(generics.ListCreateAPIView):
     queryset = AuthRole.objects.all()
     serializer_class = AuthRoleSerializer
-    permission_classes = [permissions.IsAtLeastManagerOrNoAccess]
+    permission_classes = [permissions.HasAccessOrNoAccess]
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
@@ -33,8 +33,6 @@ class AuthRoleDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = AuthRole.objects.all()
     serializer_class = AuthRoleSerializer
     permission_classes = [permissions.HasAccessOrNoAccess]
-
-
 
 
 

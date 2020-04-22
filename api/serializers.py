@@ -8,11 +8,19 @@ class AuthRoleSerializer(serializers.ModelSerializer):
         model = AuthRole
         fields = ('id', 'user_id', 'role')
 
+    def validate(self, data):
+        role_to_create = data.get('role', '')
+        current_user = self.context['request'].user
+        current_role = AuthRole.objects.get(user_id__exact=current_user.pk)
+
+        if current_role.role < role_to_create:
+            raise serializers.ValidationError("Cannot create higher role")
+
     def create(self, validated_data):
         profile = AuthRole.objects.create(**validated_data)
         return profile
 
-    def update(self, instance : AuthRole, validated_data):
+    def update(self, instance: AuthRole, validated_data):
         instance.role = validated_data.get('role', instance.role)
         instance.save()
         return instance
@@ -45,6 +53,24 @@ class JogSerializer(serializers.ModelSerializer):
     class Meta:
         model = Jog
         fields = ('id', 'user_id', 'date', 'distance', 'time', 'location')
+
+    def validate(self, data):
+        user = data.get('user_id', '')
+        current_user = self.context['request'].user
+
+        if current_user.pk == user.pk:
+            return data
+
+        role_user_to_edit = AuthRole.objects.get(user_id__exact=user.pk)
+        current_user_role = AuthRole.objects.get(user_id__exact=current_user.pk)
+
+        if current_user_role.role == AuthRole.RoleTypes.USER:
+            raise serializers.ValidationError("Can only create jogs for yourself.")
+
+        if current_user_role.role < role_user_to_edit.role:
+            raise serializers.ValidationError("Cannot create for user with higher auth role ")
+
+        return data
 
     def create(self, validated_data):
         jog = Jog.objects.create(**validated_data)

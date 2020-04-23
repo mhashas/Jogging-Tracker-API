@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from api.models import AuthRole, Jog
+from api.weather_api import WeatherAPI
 
 
 class AuthRoleSerializer(serializers.ModelSerializer):
@@ -50,9 +51,12 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class JogSerializer(serializers.ModelSerializer):
+    weather = serializers.CharField(required=False)
+
     class Meta:
         model = Jog
-        fields = ('id', 'user_id', 'date', 'distance', 'time', 'location')
+        fields = ('id', 'user_id', 'date', 'distance', 'time', 'location', 'weather')
+
 
     def validate(self, data):
         user = data.get('user_id', '')
@@ -73,5 +77,10 @@ class JogSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        validated_data['weather'] = self.get_weather(validated_data)
         jog = Jog.objects.create(**validated_data)
         return jog
+
+    def get_weather(self, validated_data):
+        weather = WeatherAPI().get_weather(validated_data['location'], validated_data['date'])
+        return weather

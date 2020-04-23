@@ -14,8 +14,8 @@ class Jog(models.Model):
     date = models.DateTimeField(db_index=True, null=False)
     distance = models.FloatField(default=0) # in meters
     time = models.FloatField(default=0) # in seconds
-    location = models.CharField(max_length=255, default='')
-    weather = models.IntegerField(choices=WeatherType.choices, null=True)
+    location = models.CharField(max_length=255, null=False)
+    weather = models.CharField(max_length=255, null=False)
 
     def __str__(self):
         return '{user}, {date}, {distance}, {time}, {location}, {weather}'.format(user=str(self.user_id), date=self.date,

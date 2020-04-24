@@ -63,6 +63,7 @@ class JogList(generics.ListCreateAPIView):
         if filter:
             q_statements = QueryFilterParser().parse_query_filter(filter)
             queryset_filter = Jog.objects.filter(eval(q_statements))
+            print(queryset_filter.query)
             queryset = queryset.intersection(queryset_filter)
 
         return queryset

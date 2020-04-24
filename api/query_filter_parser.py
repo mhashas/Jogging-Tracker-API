@@ -2,15 +2,15 @@ import re
 
 class QueryFilterParser:
 
-    OR = 'OR'
-    AND = 'AND'
+    OR = ' OR '
+    AND = ' AND '
     NOT_EQUALS = ' ne '
     EQUALS = ' eq '
     GREATER_THAN = ' gt '
     LOWER_THAN = ' lt '
 
     def parse_query_filter(self, query):
-        query = query.replace(self.AND, ',').replace(self.OR, '|')
+        query = query.replace(self.AND, '&').replace(self.OR, '|')
         query = query.replace('(', 'Q(').replace('Q(Q(', 'Q(').replace('))', ')')
         query = query.replace(self.EQUALS, '__exact=')
         query = query.replace(self.LOWER_THAN, '__lt=')

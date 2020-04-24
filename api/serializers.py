@@ -68,11 +68,14 @@ class JogSerializer(serializers.ModelSerializer):
         role_user_to_edit = AuthRole.objects.get(user_id__exact=user.pk)
         current_user_role = AuthRole.objects.get(user_id__exact=current_user.pk)
 
+        if current_user_role.role == AuthRole.RoleTypes.ADMIN:
+            return data
+
         if current_user_role.role == AuthRole.RoleTypes.USER:
             raise serializers.ValidationError("Can only create jogs for yourself.")
 
-        if current_user_role.role < role_user_to_edit.role:
-            raise serializers.ValidationError("Cannot create for user with higher auth role ")
+        if current_user_role.role <= role_user_to_edit.role:
+            raise serializers.ValidationError("Cannot create for user with same or higher auth role ")
 
         return data
 

@@ -45,7 +45,10 @@ class UserSerializer(serializers.ModelSerializer):
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.email = validated_data.get('email', instance.email)
         instance.username = validated_data.get('username', instance.username)
-        instance.password = validated_data.get('password', instance.password)
+
+        password = validated_data.pop('password', None)
+        if password:
+            instance.set_password(password)
 
         instance.save()
         return instance
@@ -75,6 +78,7 @@ class JogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Can only create jogs for yourself.")
 
         if current_user_role <= role_user_to_edit:
+            print(str(current_user_role) + '-' + str(role_user_to_edit))
             raise serializers.ValidationError("Cannot create for user with same or higher auth role ")
 
         return data

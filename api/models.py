@@ -11,7 +11,7 @@ class Jog(models.Model):
         SNOWY = 5
 
     user_id = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
-    date = models.DateTimeField(db_index=True, null=False)
+    date = models.DateField(db_index=True, null=False)
     distance = models.FloatField(default=0) # in meters
     time = models.FloatField(default=0) # in seconds
     location = models.CharField(max_length=255, null=False)

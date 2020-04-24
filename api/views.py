@@ -9,9 +9,28 @@ from api.models import User, Jog, AuthRole
 from api.serializers import UserSerializer, JogSerializer, AuthRoleSerializer
 
 
-class UserList(generics.ListCreateAPIView):
+class ModelList(generics.ListCreateAPIView, abc.ABC):
+
+    @abc.abstractmethod
+    def get_base_queryset(self):
+        pass
+
+    def get_queryset(self):
+        queryset = self.get_base_queryset()
+        filter = self.request.query_params.get('filter', None)
+
+        if filter:
+            q_statements = QueryFilterParser().parse_query_filter(filter)
+            queryset_filter = self.model.objects.filter(eval(q_statements))
+            queryset = queryset.intersection(queryset_filter)
+
+        return queryset
+
+
+class UserList(ModelList):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsCreatingHasAccessOrNoAccess]
+    model = User
 
     def get_base_queryset(self):
         logged_user = self.request.user
@@ -26,21 +45,11 @@ class UserList(generics.ListCreateAPIView):
 
         return queryset
 
-    def get_queryset(self):
-        queryset = self.get_base_queryset()
-        filter = self.request.query_params.get('filter', None)
 
-        if filter:
-            q_statements = QueryFilterParser().parse_query_filter(filter)
-            queryset_filter = User.objects.filter(eval(q_statements))
-            queryset = queryset.intersection(queryset_filter)
-
-        return queryset
-
-
-class JogList(generics.ListCreateAPIView):
+class JogList(ModelList):
     serializer_class = JogSerializer
     permission_classes = [permissions.HasAccessOrNoAccess]
+    model = Jog
 
     def get_base_queryset(self):
         logged_user = self.request.user
@@ -56,22 +65,11 @@ class JogList(generics.ListCreateAPIView):
 
         return queryset
 
-    def get_queryset(self):
-        queryset = self.get_base_queryset()
-        filter = self.request.query_params.get('filter', None)
 
-        if filter:
-            q_statements = QueryFilterParser().parse_query_filter(filter)
-            queryset_filter = Jog.objects.filter(eval(q_statements))
-            print(queryset_filter.query)
-            queryset = queryset.intersection(queryset_filter)
-
-        return queryset
-
-
-class AuthRoleList(generics.ListCreateAPIView):
+class AuthRoleList(ModelList):
     serializer_class = AuthRoleSerializer
     permission_classes = [permissions.HasAccessOrNoAccess]
+    model = AuthRole
 
     def get_base_queryset(self):
         logged_user = self.request.user
@@ -84,17 +82,6 @@ class AuthRoleList(generics.ListCreateAPIView):
         if logged_user_role == AuthRole.RoleTypes.MANAGER:
             queryset_extra = AuthRole.objects.filter(role__lt=logged_user_role)
             queryset = queryset.union(queryset_extra)
-
-        return queryset
-
-    def get_queryset(self):
-        queryset = self.get_base_queryset()
-        filter = self.request.query_params.get('filter', None)
-
-        if filter:
-            q_statements = QueryFilterParser().parse_query_filter(filter)
-            queryset_filter = AuthRole.objects.filter(eval(q_statements))
-            queryset = queryset.intersection(queryset_filter)
 
         return queryset
 

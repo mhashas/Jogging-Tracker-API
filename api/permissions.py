@@ -1,7 +1,7 @@
 from rest_framework.permissions import BasePermission
 from api.models import AuthRole
 
-class IsCreatingHasAccessOrNoAccess(BasePermission):
+class IsCreatingOrAuthElseNoAccess(BasePermission):
     """
     Either the user is trying to sign up, or no permissions
     """
@@ -18,7 +18,7 @@ class IsCreatingHasAccessOrNoAccess(BasePermission):
         return False
 
 
-class HasAccessOrNoAccess(BasePermission):
+class IsCreatingOrReadingOrStaffElseNoAccess(BasePermission):
 
     SAFE_METHODS = ['POST', 'GET']
 

@@ -1,6 +1,9 @@
 import abc
+import datetime
 from django.db.models import Q
-from django.db.models import Model
+from rest_framework import status, serializers
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework import generics
 from api.query_filter_parser import QueryFilterParser
 
@@ -29,12 +32,13 @@ class ModelList(generics.ListCreateAPIView, abc.ABC):
 
 class UserList(ModelList):
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsCreatingHasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrAuthElseNoAccess]
     model = User
 
     def get_base_queryset(self):
         logged_user = self.request.user
         logged_user_role = AuthRole.get_auth_role(logged_user.pk)
+
         if logged_user_role == AuthRole.RoleTypes.ADMIN:
             return User.objects.all()
 
@@ -48,7 +52,7 @@ class UserList(ModelList):
 
 class JogList(ModelList):
     serializer_class = JogSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
     model = Jog
 
     def get_base_queryset(self):
@@ -68,7 +72,7 @@ class JogList(ModelList):
 
 class AuthRoleList(ModelList):
     serializer_class = AuthRoleSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
     model = AuthRole
 
     def get_base_queryset(self):
@@ -89,19 +93,87 @@ class AuthRoleList(ModelList):
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
 
 
 class JogDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Jog.objects.all()
     serializer_class = JogSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
 
 
 class AuthRoleDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = AuthRole.objects.all()
     serializer_class = AuthRoleSerializer
-    permission_classes = [permissions.HasAccessOrNoAccess]
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
 
 
+class WeeklyReportDetail(APIView):
+    permission_classes = [permissions.IsCreatingOrReadingOrStaffElseNoAccess]
+
+    def get_queryset(self, date_start, date_end, user_id):
+        queryset = Jog.objects.filter(user_id__exact=user_id) \
+                              .filter(date__gte=date_start) \
+                              .filter(date__lte=date_end)
+
+        return queryset
+
+    def summary(self, jogs):
+        total_distance = 0
+        total_speed = 0
+
+        for jog in jogs:  # type: Jog
+            total_distance += jog.distance
+            total_speed += jog.distance / jog.time if jog.time else 0
+
+        return total_distance / 7, total_speed / 7
+
+    def validate(self, user_id):
+        current_user = self.request.user
+
+        if current_user.pk == user_id:
+            return True
+
+        current_user_role = AuthRole.get_auth_role(current_user.pk)
+        if current_user_role == AuthRole.RoleTypes.ADMIN:
+            return True
+        elif current_user_role == AuthRole.RoleTypes.USER:
+            raise Exception("Can only view for yourself.")
+
+        user_role = AuthRole.get_auth_role(user_id)
+
+        if user_role != AuthRole.RoleTypes.USER:
+            raise Exception("Cannot view for user with same or higher auth role.")
+
+    def get(self, request, format=None):
+        user_id = request.query_params.get('user_id', request.user.pk)
+
+        try:
+            self.validate(user_id)
+        except Exception as e:
+            exception = {"detail": str(e)}
+            return Response(exception, status=status.HTTP_400_BAD_REQUEST)
+
+        date = request.query_params.get('date', datetime.datetime.now())
+        monday = (date - datetime.timedelta(days=date.weekday())).strftime('%Y-%m-%d')
+        sunday = (date + datetime.timedelta(days=6-date.weekday())).strftime('%Y-%m-%d') # date.weekday() is 0 indexed
+
+        queryset = self.get_queryset(monday, sunday, user_id)
+        average_distance, average_speed = self.summary(queryset)
+
+        json = {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    'user_id': user_id,
+                    "week": monday,
+                    "average_speed": average_speed,
+                    "average_distance": average_distance,
+                }
+            ]
+        }
+
+        return Response(json, status=status.HTTP_200_OK)
 

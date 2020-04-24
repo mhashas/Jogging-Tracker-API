@@ -1,5 +1,7 @@
+import datetime
 from rest_framework import serializers
 from django.contrib.auth.models import User
+
 from api.models import AuthRole, Jog
 from api.weather_api import WeatherAPI
 
@@ -91,3 +93,9 @@ class JogSerializer(serializers.ModelSerializer):
     def get_weather(self, validated_data):
         weather = WeatherAPI().get_weather(validated_data['location'], validated_data['date'])
         return weather
+
+
+
+
+
+

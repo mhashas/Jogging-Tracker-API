@@ -13,16 +13,14 @@ class IsCreatingHasAccessOrNoAccess(BasePermission):
             return True
 
         if (request.user and request.user.is_authenticated):
-            auth_role = AuthRole.get_auth_role(request.user.pk)
-            if auth_role == AuthRole.RoleTypes.ADMIN or auth_role == AuthRole.RoleTypes.MANAGER:
-                return True
+            return True
 
         return False
 
 
 class HasAccessOrNoAccess(BasePermission):
 
-    SAFE_METHODS = ['POST']
+    SAFE_METHODS = ['POST', 'GET']
 
     def has_permission(self, request, view):
         if (request.user and request.user.is_authenticated):

@@ -13,8 +13,8 @@ class IsCreatingHasAccessOrNoAccess(BasePermission):
             return True
 
         if (request.user and request.user.is_authenticated):
-            auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
-            if auth_role.role == AuthRole.RoleTypes.ADMIN or auth_role.role == AuthRole.RoleTypes.MANAGER:
+            auth_role = AuthRole.get_auth_role(request.user.pk)
+            if auth_role == AuthRole.RoleTypes.ADMIN or auth_role == AuthRole.RoleTypes.MANAGER:
                 return True
 
         return False
@@ -29,8 +29,8 @@ class HasAccessOrNoAccess(BasePermission):
             if request.method in self.SAFE_METHODS:
                 return True
             else:
-                user_role = AuthRole.objects.get(user_id__exact=request.user.pk)
-                if user_role.role in [AuthRole.RoleTypes.ADMIN, AuthRole.RoleTypes.MANAGER]:
+                auth_role = AuthRole.get_auth_role(request.user.pk)
+                if auth_role in [AuthRole.RoleTypes.ADMIN, AuthRole.RoleTypes.MANAGER]:
                     return True
 
         return False
@@ -44,15 +44,15 @@ class HasAccessOrNoAccess(BasePermission):
         if obj_user_id == request.user:
             return True
 
-        user_auth_role = AuthRole.objects.get(user_id__exact=request.user.pk) # type: AuthRole
-        obj_auth_role = AuthRole.objects.get(user_id__exact=obj_user_id) # type: AuthRole
+        user_auth_role = AuthRole.get_auth_role(request.user.pk) # type: AuthRole.RoleTypes
+        obj_auth_role = AuthRole.get_auth_role(obj_user_id) # type: AuthRole.RoleTypes
 
-        if obj_auth_role.role == AuthRole.RoleTypes.USER:
-            if user_auth_role.role == AuthRole.RoleTypes.ADMIN or user_auth_role.role == AuthRole.RoleTypes.MANAGER:
+        if obj_auth_role == AuthRole.RoleTypes.USER:
+            if user_auth_role == AuthRole.RoleTypes.ADMIN or user_auth_role == AuthRole.RoleTypes.MANAGER:
                 return True
             else:
                 return False
-        elif user_auth_role.role == AuthRole.RoleTypes.ADMIN:
+        elif user_auth_role == AuthRole.RoleTypes.ADMIN:
             return True
 
         return False

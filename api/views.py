@@ -10,9 +10,13 @@ class UserList(generics.ListCreateAPIView):
     permission_classes = [permissions.IsCreatingHasAccessOrNoAccess]
 
 class JogList(generics.ListCreateAPIView):
-    queryset = Jog.objects.all()
     serializer_class = JogSerializer
     permission_classes = [permissions.HasAccessOrNoAccess]
+
+    def get_queryset(self):
+        queryset = Jog.objects.all()
+
+        return queryset
 
 class AuthRoleList(generics.ListCreateAPIView):
     queryset = AuthRole.objects.all()

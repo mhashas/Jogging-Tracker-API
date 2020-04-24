@@ -19,7 +19,7 @@ class Jog(models.Model):
 
     def __str__(self):
         return '{user}, {date}, {distance}, {time}, {location}, {weather}'.format(user=str(self.user_id), date=self.date,
-               distance=self.distance, time=self.time, location=self.location, weather=self.weather )
+               distance=self.distance, time=self.time, location=self.location, weather=self.weather)
 
 
 class AuthRole(models.Model):
@@ -34,4 +34,18 @@ class AuthRole(models.Model):
 
     def __str__(self):
         return '{id}, {user_id}, {role}'.format(id=self.pk, user_id=self.user_id, role=self.role)
+
+    @staticmethod
+    def get_auth_role(user_id):
+        auth_role = AuthRole.objects.get(user_id__exact=user_id) # type: AuthRole
+
+        if not auth_role:
+            raise Exception('No auth role for user_id ' + str(user_id) + ' found')
+
+        role = auth_role.role
+        return role
+
+
+
+
 

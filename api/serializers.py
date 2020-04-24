@@ -12,9 +12,9 @@ class AuthRoleSerializer(serializers.ModelSerializer):
     def validate(self, data):
         role_to_create = data.get('role', '')
         current_user = self.context['request'].user
-        current_role = AuthRole.objects.get(user_id__exact=current_user.pk)
+        current_role = AuthRole.get_auth_role(current_user.pk)
 
-        if current_role.role < role_to_create:
+        if current_role < role_to_create:
             raise serializers.ValidationError("Cannot create higher role")
 
     def create(self, validated_data):
@@ -65,16 +65,16 @@ class JogSerializer(serializers.ModelSerializer):
         if current_user.pk == user.pk:
             return data
 
-        role_user_to_edit = AuthRole.objects.get(user_id__exact=user.pk)
-        current_user_role = AuthRole.objects.get(user_id__exact=current_user.pk)
+        role_user_to_edit = AuthRole.get_auth_role(user.pk)
+        current_user_role = AuthRole.get_auth_role(current_user.pk)
 
-        if current_user_role.role == AuthRole.RoleTypes.ADMIN:
+        if current_user_role == AuthRole.RoleTypes.ADMIN:
             return data
 
-        if current_user_role.role == AuthRole.RoleTypes.USER:
+        if current_user_role == AuthRole.RoleTypes.USER:
             raise serializers.ValidationError("Can only create jogs for yourself.")
 
-        if current_user_role.role <= role_user_to_edit.role:
+        if current_user_role <= role_user_to_edit:
             raise serializers.ValidationError("Cannot create for user with same or higher auth role ")
 
         return data

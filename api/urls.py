@@ -12,7 +12,7 @@ urlpatterns = [
     path('weekly_report/', WeeklyReportDetail.as_view()),
     path('auth_role/', AuthRoleList.as_view()),
     path('auth_role/<int:pk>', AuthRoleDetail.as_view()),
-    path('token-auth/', obtain_auth_token, name='api_token_auth'),  # <-- And here
+    path('token-auth/', obtain_auth_token, name='api_token_auth'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

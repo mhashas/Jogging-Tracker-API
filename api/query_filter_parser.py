@@ -1,7 +1,5 @@
-import re
-
 class QueryFilterParser:
-
+    """Class that is used to parse query filters into Django Q statements"""
     OR = ' OR '
     AND = ' AND '
     NOT_EQUALS = ' ne '
@@ -10,6 +8,15 @@ class QueryFilterParser:
     LOWER_THAN = ' lt '
 
     def parse_query_filter(self, query):
+        """
+        Sequentially transforms the given query filter into Django Q statements.
+
+        Args:
+            query (str): filter query given by the user to filter results
+
+        Returns:
+            (str): transformed q statements for django
+        """
         query = query.replace(self.AND, '&').replace(self.OR, '|')
         query = query.replace('(', 'Q(').replace('Q(Q(', 'Q(').replace('))', ')')
         query = query.replace(self.EQUALS, '__exact=')

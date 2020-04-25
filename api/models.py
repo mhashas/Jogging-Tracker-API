@@ -1,14 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-class Jog(models.Model):
 
-    class WeatherType(models.IntegerChoices):
-        SUNNY = 1
-        RAINY = 2
-        CLOUDY = 3
-        WINDY = 4
-        SNOWY = 5
+class Jog(models.Model):
 
     user_id = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     date = models.DateField(db_index=True, null=False)
@@ -37,6 +31,15 @@ class AuthRole(models.Model):
 
     @staticmethod
     def get_auth_role(user_id):
+        """
+        Retrieves the auth role for the given user_id
+
+        Args:
+            user_id (int): user_id for which to retrieve the role
+
+        Returns:
+            AuthRole.RoleTypes: user's role
+        """
         auth_role = AuthRole.objects.get(user_id__exact=user_id) # type: AuthRole
 
         if not auth_role:

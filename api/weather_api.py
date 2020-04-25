@@ -1,14 +1,31 @@
 import requests
 
 class WeatherAPI:
+    """Class used to connect to a weather API for retrieving the weather for a given location and date"""
 
     API_KEY  = '1cad47e768cd6377195152f2e19bdf64'
     API_LINK = 'http://api.weatherstack.com/current'
 
     def __init__(self, api_key=None):
+        """
+        Initializes the Weather API
+
+        Args:
+             api_key (str): key to connect to the api
+        """
         self.api_key = api_key if api_key else self.API_KEY
 
     def get_weather(self, location , date):
+        """
+        Runs a request through the weather API and returns the weather at the location on the given date
+
+        Args:
+            location (str): location in which we want to see the weather status
+            date (str "d-m-Y"): date for which we want to see the weather status
+
+        Returns:
+            string: Either "Unknown" in case there was an API error or the weather description returned by the API
+        """
         params = {
             'access_key': self.api_key,
             'query': location,
@@ -16,6 +33,10 @@ class WeatherAPI:
         }
 
         api_result = requests.get(self.API_LINK, params)
+
+        if not api_result:
+            return 'Unknown'
+
         api_response = api_result.json()
         weather_description = api_response['current']['weather_descriptions'][0]
 

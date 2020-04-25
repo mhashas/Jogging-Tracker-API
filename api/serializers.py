@@ -5,8 +5,9 @@ from django.contrib.auth.models import User
 from api.models import AuthRole, Jog
 from api.weather_api import WeatherAPI
 
-
 class AuthRoleSerializer(serializers.ModelSerializer):
+    HIGHER_ROLE_ERROR = 'Cannot create higher role'
+
     class Meta:
         model = AuthRole
         fields = ('id', 'user_id', 'role')
@@ -17,13 +18,16 @@ class AuthRoleSerializer(serializers.ModelSerializer):
         current_role = AuthRole.get_auth_role(current_user.pk)
 
         if current_role < role_to_create:
-            raise serializers.ValidationError("Cannot create higher role")
+            raise serializers.ValidationError(self.HIGHER_ROLE_ERROR)
+
+        return data
 
     def create(self, validated_data):
         profile = AuthRole.objects.create(**validated_data)
         return profile
 
     def update(self, instance: AuthRole, validated_data):
+        instance.user_id = validated_data.get('user_id', instance.user_id)
         instance.role = validated_data.get('role', instance.role)
         instance.save()
         return instance
@@ -35,7 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'first_name', 'last_name', 'email', 'username', 'password')
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
+        password = validated_data['password']
         user = User.objects.create(**validated_data)
         user.set_password(password)
         user.save()
@@ -48,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email', instance.email)
         instance.username = validated_data.get('username', instance.username)
 
-        password = validated_data.pop('password', None)
+        password = validated_data.get('password', None)
         if password:
             instance.set_password(password)
 
@@ -57,6 +61,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class JogSerializer(serializers.ModelSerializer):
     weather = serializers.CharField(required=False)
+
+    HIGHER_ROLE_ERROR = "Cannot create for user with same or higher auth role"
+    OTHER_USER_ERROR = "Can only create jogs for yourself"
 
     class Meta:
         model = Jog
@@ -77,11 +84,11 @@ class JogSerializer(serializers.ModelSerializer):
             return data
 
         if current_user_role == AuthRole.RoleTypes.USER:
-            raise serializers.ValidationError("Can only create jogs for yourself.")
+            raise serializers.ValidationError(self.OTHER_USER_ERROR)
 
         if current_user_role <= role_user_to_edit:
             print(str(current_user_role) + '-' + str(role_user_to_edit))
-            raise serializers.ValidationError("Cannot create for user with same or higher auth role ")
+            raise serializers.ValidationError(self.HIGHER_ROLE_ERROR)
 
         return data
 

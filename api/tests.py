@@ -1,17 +1,24 @@
-from django.test import TestCase, RequestFactory
 from django.http import HttpRequest
 from rest_framework import serializers
+from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework.test import force_authenticate, APIRequestFactory, APITestCase
 
-from api.models import User, AuthRole
+import random
+import string
+import json
+
+from api.models import User, AuthRole, Jog
+from api.views import UserList, UserDetail, JogList, JogDetail, AuthRoleDetail, AuthRoleList
 from api.serializers import UserSerializer, AuthRoleSerializer, JogSerializer
 
-class SerializerTest(TestCase):
+
+class SerializerTest(APITestCase):
 
     USER_DATA = {'first_name': 'user', 'last_name': 'user', 'email': 'user@user.com', 'password': 'user' , 'username': 'user'}
     MANAGER_DATA = {'first_name': 'manager', 'last_name': 'manager', 'email': 'manager@manager.com', 'password': 'manager', 'username': 'manager'}
     ADMIN_DATA = {'first_name': 'admin', 'last_name': 'admin', 'email': 'admin@admin.com', 'password': 'admin', 'username': 'admin'}
     TEST_DATA = {'first_name': 'test', 'last_name': 'test', 'email': 'test@test.com', 'password': 'test', 'username': 'test'}
-    
+
     def create_manager(self, data=None):
         data = data if data else self.MANAGER_DATA
         manager = UserSerializer().create(data)
@@ -20,7 +27,7 @@ class SerializerTest(TestCase):
         manager_role.save()
 
         return manager
-        
+
     def create_admin(self, data=None):
         data = data if data else self.ADMIN_DATA
         admin = UserSerializer().create(data)
@@ -173,30 +180,178 @@ class JogSerializerTest(SerializerTest):
         data = {'date': '04-23-2020', 'location': 'Amsterdam', 'weather': 'Sunny', 'user_id': second_admin}
         self.assertEqual(data, self.serializer.validate(data))
 
+class UserAPIViewTest(SerializerTest):
 
-class APIVIewTest(TestCase):
+    def signup_view(self, data=None):
+        if data is None:
+            data = self.TEST_DATA
 
-    def setUp(self):
-        self.factory = RequestFactory()
+        request = APIRequestFactory().post('/api/user', data=data)
+        response = UserList.as_view()(request)
 
-class UserAPIViewTest(APIVIewTest):
+        return response
 
-    def test_user_create(self):
-        request = self.factory.get('/customer/details')
+    def test_signup_view(self, data=None):
+        response = self.signup_view(data=data)
+        self.assertEqual(response.status_code, 201)
 
-        # Recall that middleware are not supported. You can simulate a
-        # logged-in user by setting request.user manually.
-        request.user = self.user
+    def login(self, data=None):
+        if data is None:
+            data = self.TEST_DATA
 
-        # Or you can simulate an anonymous user by setting request.user to
-        # an AnonymousUser instance.
-        request.user = AnonymousUser()
+        self.signup_view(data)
+        request = APIRequestFactory().post('/api/token-auth', data=data)
+        response = obtain_auth_token(request).render()
+        content = response.content.decode()
+        content = eval(content)
 
-        # Test my_view() as if it were deployed at /customer/details
-        response = my_view(request)
-        # Use this syntax for class-based views.
-        response = MyView.as_view()(request)
+        return response, content['token']
+
+    def test_login(self, data=None):
+        response, token = self.login(data)
         self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(token)
+
+class BaseAPITokenTest(SerializerTest):
+
+    def get_user_header(self, data=None):
+        UserAPIViewTest().signup_view(data=data)
+        _, token = UserAPIViewTest().login(data=data)
+        user = User.objects.get(first_name__exact=data.get('first_name'))
+
+        self.user = user
+        self.token = token
+
+        return user, token
+
+    def get_manager_header(self, data=None):
+        user, token = self.get_user_header(data=data)
+        auth_role = AuthRole.objects.get(user_id__exact=user.pk)
+
+        auth_role.role = AuthRole.RoleTypes.MANAGER
+        auth_role.save()
+
+        return user, token
+
+    def get_admin_header(self, data=None):
+        user, token = self.get_user_header(data=data)
+        auth_role = AuthRole.objects.get(user_id__exact=user.pk)
+
+        auth_role.role = AuthRole.RoleTypes.ADMIN
+        auth_role.save()
+
+        return user, token
+
+class JogAPIViewTest(BaseAPITokenTest):
+
+    def create_jog_without_logging_in(self, user_data=None):
+        if user_data is None:
+            user_data = self.TEST_DATA
+
+        user, token = self.get_user_header(user_data)
+        jog_data = {'date': '23-04-2020', 'location': 'Amsterdam', 'weather': 'Sunny', 'user_id': user.pk}
+
+        request = APIRequestFactory().post('api/jogs', data=jog_data)
+
+        response = JogList.as_view()(request).render()
+        content = eval(response.content.decode())
+
+        return content
+
+    def test_create_jog_without_logging_in(self, user_data=None):
+        content = self.create_jog_without_logging_in(user_data)
+        self.assertEqual(content['detail'], 'Authentication credentials were not provided.')
+
+    def user_create_jog(self, user_data=None):
+        if user_data is None:
+            user_data = self.TEST_DATA
+
+        user, token = self.get_user_header(user_data)
+        jog_data = {'date': '23-04-2020', 'location': 'Amsterdam', 'weather': 'Sunny', 'user_id': user.pk}
+
+        request = APIRequestFactory().post('api/jogs', data=jog_data)
+        force_authenticate(request, user=user, token=token)
+
+        response = JogList.as_view()(request).render()
+        content = eval(response.content.decode())
+
+        return response, content
+
+    def test_user_create_jog(self, user_data=None):
+        response, content = self.user_create_jog(user_data)
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNotNone(content['id'])
+
+    def user_get_jog(self, user_data=None):
+        _, content = self.user_create_jog(user_data)
+        jog_id = content['id']
+
+        request = APIRequestFactory().get('api/jogs/', content_type='application/json')
+        force_authenticate(request, self.user, self.token)
+
+        response = JogDetail.as_view()(request, pk=jog_id).render()
+        content = eval(response.content.decode())
+        return response, content
+
+    def test_user_get_jog(self, user_data=None):
+        response, content = self.user_get_jog(user_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(content['id'])
+
+    def user_update_jog(self, user_data=None):
+        _, content = self.user_create_jog(user_data)
+        jog_id = content['id']
+
+        body = {'location': 'test',
+                'distance': 7,
+                'time': 7,
+                'user_id': self.user.pk,
+                'date': '20-04-2020',
+                }
+
+        request = APIRequestFactory().put('api/jogs/', data=json.dumps(body), content_type='application/json')
+        force_authenticate(request, self.user, self.token)
+
+        response = JogDetail.as_view()(request, pk=jog_id).render()
+        content = eval(response.content.decode())
+        return response, content
+
+    def test_user_update_jog(self, user_data=None):
+        response, content = self.user_update_jog(user_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(content['location'], 'test')
+        self.assertEqual(content['distance'], 7)
+        self.assertEqual(content['time'], 7)
+
+    def user_delete_jog(self, user_data=None):
+        _, content = self.user_create_jog(user_data)
+        jog_id = content['id']
+
+        request = APIRequestFactory().delete('api/jogs/', content_type='application/json')
+        force_authenticate(request, self.user, self.token)
+
+        response = JogDetail.as_view()(request, pk=jog_id).render()
+        return response
+
+    def test_user_delete_jog(self, user_data=None):
+        response = self.user_delete_jog(user_data)
+        self.assertEqual(response.status_code, 204)
+
+
+class EndToEndTesting(BaseAPITokenTest):
+
+    def test_app_flow_user(self):
+        data = self.USER_DATA
+
+        UserAPIViewTest().test_signup_view(data)
+        UserAPIViewTest().test_login(data)
+
+        JogAPIViewTest().test_create_jog_without_logging_in(data)
+        JogAPIViewTest().test_user_create_jog(data)
+        JogAPIViewTest().test_user_get_jog(data)
+        JogAPIViewTest().test_user_update_jog(data)
+        JogAPIViewTest().test_user_delete_jog(data)
     
 
 

@@ -74,6 +74,9 @@ class JogSerializer(serializers.ModelSerializer):
         user = data.get('user_id', '')
         current_user = self.context['request'].user
 
+        if not isinstance(user, User):
+            user = User.objects.get(pk=user)
+
         if current_user.pk == user.pk:
             return data
 
@@ -87,7 +90,6 @@ class JogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(self.OTHER_USER_ERROR)
 
         if current_user_role <= role_user_to_edit:
-            print(str(current_user_role) + '-' + str(role_user_to_edit))
             raise serializers.ValidationError(self.HIGHER_ROLE_ERROR)
 
         return data

@@ -69,7 +69,6 @@ class IsCreatingOrReadingOrStaffElseNoAccess(BasePermission):
             return True
 
         user_auth_role = AuthRole.get_auth_role(request.user.pk) # type: AuthRole.RoleTypes
-        print(user_auth_role)
         obj_auth_role = AuthRole.get_auth_role(obj_user_id) # type: AuthRole.RoleTypes
 
         if obj_auth_role == AuthRole.RoleTypes.USER:

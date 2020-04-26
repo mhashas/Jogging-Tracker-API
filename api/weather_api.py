@@ -33,11 +33,11 @@ class WeatherAPI:
         }
 
         api_result = requests.get(self.API_LINK, params)
+        api_response = api_result.json()
 
-        if not api_result:
+        if not 'current' not in api_response.keys():
             return 'Unknown'
 
-        api_response = api_result.json()
         weather_description = api_response['current']['weather_descriptions'][0]
 
         return weather_description

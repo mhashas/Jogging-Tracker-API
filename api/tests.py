@@ -20,6 +20,8 @@ class SerializerTest(APITestCase):
     MANAGER_DATA = {'first_name': 'manager', 'last_name': 'manager', 'email': 'manager@manager.com', 'password': 'manager', 'username': 'manager'}
     ADMIN_DATA = {'first_name': 'admin', 'last_name': 'admin', 'email': 'admin@admin.com', 'password': 'admin', 'username': 'admin'}
     TEST_DATA = {'first_name': 'test', 'last_name': 'test', 'email': 'test@test.com', 'password': 'test', 'username': 'test'}
+    TEST_DATA_2 = {'first_name': 'test2', 'last_name': 'test2', 'email': 'test2@test2.com', 'password': 'test2', 'username': 'test2'}
+
 
     def create_manager(self, data=None):
         data = data if data else self.MANAGER_DATA
@@ -196,40 +198,6 @@ class JogSerializerTest(SerializerTest):
         data = {'date': '04-23-2020', 'location': 'Amsterdam', 'weather': 'Sunny', 'user_id': second_admin}
         self.assertEqual(data, self.serializer.validate(data))
 
-class UserAPIViewTest(SerializerTest):
-
-    def signup_view(self, data=None):
-        if data is None:
-            data = self.TEST_DATA
-
-        request = APIRequestFactory().post('/api/user', data=data)
-        response = UserList.as_view()(request)
-
-        return response
-
-    def test_signup_view(self, data=None):
-        response = self.signup_view(data=data)
-        self.assertEqual(response.status_code, 201)
-
-    def login(self, data=None):
-        if data is None:
-            data = self.TEST_DATA
-
-        self.signup_view(data)
-        request = APIRequestFactory().post('/api/token-auth', data=data)
-        response = obtain_auth_token(request).render()
-        content = response.content.decode()
-        content = eval(content)
-
-        return response, content['token']
-
-    def test_login(self, data=None):
-        response, token = self.login(data)
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(token)
-
-        return token
-
 class BaseAPITokenTest(SerializerTest):
 
     def get_user_header(self, data=None):
@@ -260,6 +228,104 @@ class BaseAPITokenTest(SerializerTest):
 
         return user, token
 
+class UserAPIViewTest(BaseAPITokenTest):
+
+    def signup_view(self, data=None):
+        if data is None:
+            data = self.TEST_DATA
+
+        request = APIRequestFactory().post('/api/user', data=data)
+        response = UserList.as_view()(request).render()
+        content = response.content.decode()
+        content = eval(content)
+
+        return response,  content
+
+    def test_signup_view(self, data=None):
+        response, content = self.signup_view(data=data)
+        self.assertEqual(response.status_code, 201)
+
+    def login(self, data=None):
+        if data is None:
+            data = self.TEST_DATA
+
+        self.signup_view(data)
+        request = APIRequestFactory().post('/api/token-auth', data=data)
+        response = obtain_auth_token(request).render()
+        content = response.content.decode()
+        content = eval(content)
+
+        return response, content['token']
+
+    def test_login(self, data=None):
+        response, token = self.login(data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(token)
+
+        return token
+
+    def user_get_user(self, user_id=None, user=None, token=None, user_data=None):
+        if not user_id:
+            _, content = self.signup_view(user_data)
+            user_id = content['id']
+            token = self.login(user_data)
+            user = User.objects.get(pk=user_id)
+
+        request = APIRequestFactory().get('api/users/', content_type='application/json')
+        force_authenticate(request, user, token)
+
+        response = UserDetail.as_view()(request, pk=user_id).render()
+        content = eval(response.content.decode())
+        return response, content
+
+    def test_user_get_user(self, user_id=None, user=None, token=None, user_data=None):
+        response, content = self.user_get_user(user_id=user_id, user=user, token=token, user_data=user_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(content['id'])
+
+    def user_update_user(self, user_id=None, user=None, token=None, user_data=None):
+        if not user_id:
+            _, content = self.signup_view(user_data)
+            user_id = content['id']
+            token = self.login(user_data)
+            user = User.objects.get(pk=user_id)
+
+        body = self.TEST_DATA_2
+
+        request = APIRequestFactory().put('api/users/', data=json.dumps(body), content_type='application/json')
+        force_authenticate(request, user, token)
+
+        response = UserDetail.as_view()(request, pk=user_id).render()
+        content = eval(response.content.decode())
+        return response, content
+
+    def test_user_update_user(self, user_id=None, user=None, token=None, user_data=None):
+        response, content = self.user_update_user(user_id=user_id, user=user, token=token, user_data=user_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(content['first_name'], 'test2')
+        self.assertEqual(content['last_name'], 'test2')
+        self.assertEqual(content['email'], 'test2@test2.com')
+        self.assertEqual(content['username'], 'test2')
+
+    def user_delete_user(self, user_id=None, user=None, token=None, user_data=None):
+        if not user_id:
+            _, content = self.signup_view(user_data)
+            user_id = content['id']
+            token = self.login(user_data)
+            user = User.objects.get(pk=user_id)
+
+        request = APIRequestFactory().delete('api/users/', content_type='application/json')
+        force_authenticate(request, user, token)
+
+        response = UserDetail.as_view()(request, pk=user_id).render()
+        return response
+
+    def test_user_delete_user(self, user_id=None, user=None, token=None, user_data=None):
+        response = self.user_delete_user(user_id=user_id, user=user, token=token, user_data=user_data)
+        self.assertEqual(response.status_code, 204)
+
+
 class JogAPIViewTest(BaseAPITokenTest):
 
     def create_jog_without_logging_in(self, user_data=None):
@@ -280,8 +346,8 @@ class JogAPIViewTest(BaseAPITokenTest):
         content = self.create_jog_without_logging_in(user_data)
         self.assertEqual(content['detail'], 'Authentication credentials were not provided.')
 
-    def user_create_jog(self, user_data=None, user=None, token=None):
-        if user_data is None:
+    def user_create_jog(self, user=None, token=None, user_data=None):
+        if user is None or token is None:
             user_data = self.TEST_DATA
             user, token = self.get_user_header(user_data)
 
@@ -295,35 +361,35 @@ class JogAPIViewTest(BaseAPITokenTest):
 
         return response, content
 
-    def test_user_create_jog(self, user_data=None, user=None, token=None):
-        response, content = self.user_create_jog(user_data, user, token)
+    def test_user_create_jog(self, user=None, token=None, user_data=None):
+        response, content = self.user_create_jog(user=user, token=token, user_data=user_data)
         self.assertEqual(response.status_code, 201)
         self.assertIsNotNone(content['id'])
 
         return content['id']
 
-    def user_get_jog(self, user_data=None, jog_id=None, user=None, token=None):
+    def user_get_jog(self, jog_id=None, user=None, token=None, user_data=None):
         if not jog_id:
-            _, content = self.user_create_jog(user_data)
+            _, content = self.user_create_jog(user_data=user_data)
             jog_id = content['id']
             user = self.user
             token = self.token
 
-        request = APIRequestFactory().get('api/jogs/', content_type='application/json')
+        request = APIRequestFactory().get('api/jogs/')
         force_authenticate(request, user, token)
 
         response = JogDetail.as_view()(request, pk=jog_id).render()
         content = eval(response.content.decode())
         return response, content
 
-    def test_user_get_jog(self, user_data=None, jog_id=None, user=None, token=None):
-        response, content = self.user_get_jog(user_data=user_data, jog_id=jog_id, user=user, token=token)
+    def test_user_get_jog(self, jog_id=None, user=None, token=None, user_data=None):
+        response, content = self.user_get_jog(jog_id=jog_id, user=user, token=token, user_data=user_data)
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(content['id'])
 
-    def user_update_jog(self, user_data=None, jog_id=None, user=None, token=None):
+    def user_update_jog(self, jog_id=None, user=None, token=None, user_data=None):
         if not jog_id:
-            _, content = self.user_create_jog(user_data)
+            _, content = self.user_create_jog(user_data=user_data)
             jog_id = content['id']
             user = self.user
             token = self.token
@@ -335,71 +401,112 @@ class JogAPIViewTest(BaseAPITokenTest):
                 'date': '20-04-2020',
                 }
 
-        request = APIRequestFactory().put('api/jogs/', data=json.dumps(body), content_type='application/json')
+        request = APIRequestFactory().put('api/jogs/', data=body)
         force_authenticate(request, user, token)
 
         response = JogDetail.as_view()(request, pk=jog_id).render()
         content = eval(response.content.decode())
         return response, content
 
-    def test_user_update_jog(self, user_data=None, jog_id=None, user=None, token=None):
-        response, content = self.user_update_jog(user_data=user_data, jog_id=jog_id, user=user, token=token)
+    def test_user_update_jog(self, jog_id=None, user=None, token=None, user_data=None):
+        response, content = self.user_update_jog(jog_id=jog_id, user=user, token=token, user_data=user_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(content['location'], 'test')
         self.assertEqual(content['distance'], 7)
         self.assertEqual(content['time'], 7)
 
-    def user_delete_jog(self, user_data=None, jog_id=None, user=None, token=None):
+    def user_delete_jog(self, jog_id=None, user=None, token=None, user_data=None):
         if not jog_id:
-            _, content = self.user_create_jog(user_data)
+            _, content = self.user_create_jog(user_data=user_data)
             jog_id = content['id']
             user = self.user
             token = self.user
 
-        request = APIRequestFactory().delete('api/jogs/', content_type='application/json')
+        request = APIRequestFactory().delete('api/jogs/')
         force_authenticate(request, user, token)
 
         response = JogDetail.as_view()(request, pk=jog_id).render()
         return response
 
-    def test_user_delete_jog(self, user_data=None, jog_id=None, user=None, token=None):
-        response = self.user_delete_jog(user_data=user_data, jog_id=jog_id, user=user, token=token)
+    def test_user_delete_jog(self, jog_id=None, user=None, token=None, user_data=None):
+        response = self.user_delete_jog(jog_id=jog_id, user=user, token=token, user_data=user_data)
         self.assertEqual(response.status_code, 204)
 
 
 class EndToEndTesting(BaseAPITokenTest):
 
-    # THIS ALSO TESTS THE PERMISSION CLASS
+    def create_user(self, data):
+        UserAPIViewTest().test_signup_view(data)
+        user = User.objects.get(first_name__exact=data.get('first_name'))
+        token = UserAPIViewTest().test_login(data)
+
+        return user, token
+
+    def create_manager(self, data):
+        manager, manager_token = self.create_user(data)
+
+        manager_role = AuthRole.objects.get(user_id__exact=manager.pk)
+        manager_role.role = AuthRole.RoleTypes.MANAGER
+        manager_role.save()
+
+        return manager, manager_token
+
+    def create_admin(self, data):
+        admin, admin_token = self.create_user(data)
+
+        admin_role = AuthRole.objects.get(user_id__exact=admin.pk)
+        admin_role.role = AuthRole.RoleTypes.ADMIN
+        admin_role.save()
+
+        return admin, admin_token
+
 
     def test_app_flow_user(self):
         data = self.USER_DATA
         data_2 = self.TEST_DATA
 
         # CREATE USER 1
+        user, token = self.create_user(data)
+        # CREATE USER 2
+        user_2, token_2 = self.create_user(data_2)
+
+        ##### USER
+
+        # USER 1 CAN CRUD HIS DATA
+        UserAPIViewTest().test_user_get_user(user.pk, user, token)
+        UserAPIViewTest().test_user_update_user(user.pk, user, token)
+        UserAPIViewTest().test_user_delete_user(user.pk, user, token)
+
+        # CREATE USER BACK
         UserAPIViewTest().test_signup_view(data)
         user = User.objects.get(first_name__exact=data.get('first_name'))
         token = UserAPIViewTest().test_login(data)
 
+        # USER 1 CANNOT CRUD USER 2 DATA
+        response, _ = UserAPIViewTest().user_get_user(user_2.pk, user, token)
+        self.assertEqual(response.status_code, 403)
+        response, _ = UserAPIViewTest().user_update_user(user_2.pk, user, token)
+        self.assertEqual(response.status_code, 403)
+        response = UserAPIViewTest().user_delete_user(user_2.pk, user, token)
+        self.assertEqual(response.status_code, 403)
+
+        ##### JOGGING
+
         # USER 1 CAN CRUD HIS JOG
         JogAPIViewTest().test_create_jog_without_logging_in(data)
-        jog_id = JogAPIViewTest().test_user_create_jog(data, user, token)
-        JogAPIViewTest().test_user_get_jog(data, jog_id, user, token)
-        JogAPIViewTest().test_user_update_jog(data, jog_id, user, token)
-        JogAPIViewTest().test_user_delete_jog(data, jog_id, user, token)
-
-        # CREATE USER 2
-        UserAPIViewTest().test_signup_view(data_2)
-        user_2 = User.objects.get(first_name__exact=data_2.get('first_name'))
-        token_2 = UserAPIViewTest().test_login(data_2)
+        jog_id = JogAPIViewTest().test_user_create_jog(user, token)
+        JogAPIViewTest().test_user_get_jog(jog_id, user, token)
+        JogAPIViewTest().test_user_update_jog(jog_id, user, token)
+        JogAPIViewTest().test_user_delete_jog(jog_id, user, token)
 
         # USER 1 CANNOT CRUD 2 USER JOG
-        jog_id_2 = JogAPIViewTest().test_user_create_jog(data_2, user_2, token_2)
-        response, _ = JogAPIViewTest().user_get_jog(data, jog_id_2, user, token)
+        jog_id_2 = JogAPIViewTest().test_user_create_jog(user_2, token_2)
+        response, _ = JogAPIViewTest().user_get_jog(jog_id_2, user, token)
         self.assertEqual(response.status_code, 403)
-        response, _ = JogAPIViewTest().user_update_jog(data, jog_id_2, user, token)
+        response, _ = JogAPIViewTest().user_update_jog(jog_id_2, user, token)
         self.assertEqual(response.status_code, 403)
-        response = JogAPIViewTest().user_delete_jog(data, jog_id_2, user, token)
+        response = JogAPIViewTest().user_delete_jog(jog_id_2, user, token)
         self.assertEqual(response.status_code, 403)
 
 
@@ -409,39 +516,36 @@ class EndToEndTesting(BaseAPITokenTest):
         admin_data = self.ADMIN_DATA
 
         # CREATE USER
-        UserAPIViewTest().test_signup_view(user_data)
-        user = User.objects.get(first_name__exact=user_data.get('first_name'))
-        user_token = UserAPIViewTest().test_login(user_data)
-
+        user, user_token = self.create_user(user_data)
         # CREATE MANAGER
-        UserAPIViewTest().test_signup_view(manager_data)
-        manager = User.objects.get(first_name__exact=manager_data.get('first_name'))
-        manager_role = AuthRole.objects.get(user_id__exact=manager.pk)
-        manager_role.role = AuthRole.RoleTypes.MANAGER
-        manager_role.save()
-        manager_token = UserAPIViewTest().test_login(manager_data)
-
+        manager, manager_token = self.create_manager(manager_data)
         # CREATE ADMIN
-        UserAPIViewTest().test_signup_view(admin_data)
-        admin = User.objects.get(first_name__exact=admin_data.get('first_name'))
-        admin_role = AuthRole.objects.get(user_id__exact=admin.pk)
-        admin_role.role = AuthRole.RoleTypes.ADMIN
-        admin_role.save()
-        admin_token = UserAPIViewTest().test_login(manager_data)
+        admin, admin_token = self.create_admin(admin_data)
 
-        # MANAGER CAN CRUD USER JOG
-        jog_id = JogAPIViewTest().test_user_create_jog(user_data, user, user_token)
-        JogAPIViewTest().test_user_get_jog(manager_data, jog_id, manager, manager_token)
-        JogAPIViewTest().test_user_update_jog(manager_data, jog_id, manager, manager_token)
-        JogAPIViewTest().test_user_delete_jog(manager_data, jog_id, manager, manager_token)
+        ##### USER
 
-        # MANAGER CANNOT CRUD ADMIN JOG
-        jog_id_2 = JogAPIViewTest().test_user_create_jog(admin_data, admin, admin_token)
-        response, _ = JogAPIViewTest().user_get_jog(manager_data, jog_id_2, manager, manager_token)
+        # MANAGER CAN CRUD HIS DATA
+        UserAPIViewTest().test_user_get_user(manager.pk, manager, manager_token)
+        UserAPIViewTest().test_user_update_user(manager.pk, manager, manager_token)
+        UserAPIViewTest().test_user_delete_user(manager.pk, manager, manager_token)
+
+        # CREATE MANAGER BACK
+        manager, manager_token = self.create_manager(manager_data)
+
+        # MANAGER CAN CRUD USER
+        UserAPIViewTest().test_user_get_user(user.pk, manager, manager_token)
+        UserAPIViewTest().test_user_update_user(user.pk, manager, manager_token)
+        UserAPIViewTest().test_user_delete_user(user.pk, manager, manager_token)
+
+        # CREATE USER
+        user, user_token = self.create_user(user_data)
+
+        # MANAGER CANNOT CRUD ADMIN
+        response, _ = UserAPIViewTest().user_get_user(admin.pk, manager, manager_token)
         self.assertEqual(response.status_code, 403)
-        response, _ = JogAPIViewTest().user_update_jog(manager_data, jog_id_2, manager, manager_token)
+        response, _ = UserAPIViewTest().user_update_user(admin.pk, manager, manager_token)
         self.assertEqual(response.status_code, 403)
-        response = JogAPIViewTest().user_delete_jog(manager_data, jog_id_2, manager, manager_token)
+        response = UserAPIViewTest().user_delete_user(admin.pk, manager, manager_token)
         self.assertEqual(response.status_code, 403)
 
         # MAKE USER MANAGER
@@ -450,12 +554,53 @@ class EndToEndTesting(BaseAPITokenTest):
         user_role.save()
 
         # MANAGER CANNOT CRUD MANAGER
-        jog_id = JogAPIViewTest().test_user_create_jog(user_data, user, user_token)
-        response, _ = JogAPIViewTest().user_get_jog(manager_data, jog_id, manager, manager_token)
+        response, _ = UserAPIViewTest().user_get_user(user.pk, manager, manager_token)
         self.assertEqual(response.status_code, 403)
-        response, _ = JogAPIViewTest().user_update_jog(manager_data, jog_id, manager, manager_token)
+        response, _ = UserAPIViewTest().user_update_user(user.pk, manager, manager_token)
         self.assertEqual(response.status_code, 403)
-        response = JogAPIViewTest().user_delete_jog(manager_data, jog_id, manager, manager_token)
+        response = UserAPIViewTest().user_delete_user(user.pk, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+
+        # MAKE USER USER AGAIN
+        user_role = AuthRole.objects.get(user_id__exact=user.pk)
+        user_role.role = AuthRole.RoleTypes.USER
+        user_role.save()
+
+        ##### JOGGING
+
+        # MANAGER CAN CRUD HIS DATA
+        jog_id = JogAPIViewTest().test_user_create_jog(manager, manager_token)
+        JogAPIViewTest().test_user_get_jog(jog_id, manager, manager_token)
+        JogAPIViewTest().test_user_update_jog(jog_id, manager, manager_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id, manager, manager_token)
+
+        # MANAGER CAN CRUD USER JOG
+        jog_id = JogAPIViewTest().test_user_create_jog(user, user_token)
+        JogAPIViewTest().test_user_get_jog(jog_id, manager, manager_token)
+        JogAPIViewTest().test_user_update_jog(jog_id, manager, manager_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id, manager, manager_token)
+
+        # MANAGER CANNOT CRUD ADMIN JOG
+        jog_id_2 = JogAPIViewTest().test_user_create_jog(admin, admin_token)
+        response, _ = JogAPIViewTest().user_get_jog(jog_id_2, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+        response, _ = JogAPIViewTest().user_update_jog(jog_id_2, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+        response = JogAPIViewTest().user_delete_jog(jog_id_2, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+
+        # MAKE USER MANAGER
+        user_role = AuthRole.objects.get(user_id__exact=user.pk)
+        user_role.role = AuthRole.RoleTypes.MANAGER
+        user_role.save()
+
+        # MANAGER CANNOT CRUD MANAGER
+        jog_id = JogAPIViewTest().test_user_create_jog(user, user_token)
+        response, _ = JogAPIViewTest().user_get_jog(jog_id, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+        response, _ = JogAPIViewTest().user_update_jog(jog_id, manager, manager_token)
+        self.assertEqual(response.status_code, 403)
+        response = JogAPIViewTest().user_delete_jog(jog_id, manager, manager_token)
         self.assertEqual(response.status_code, 403)
 
     def test_app_flow_admin(self):
@@ -464,37 +609,37 @@ class EndToEndTesting(BaseAPITokenTest):
         admin_data = self.ADMIN_DATA
 
         # CREATE USER
-        UserAPIViewTest().test_signup_view(user_data)
-        user = User.objects.get(first_name__exact=user_data.get('first_name'))
-        user_token = UserAPIViewTest().test_login(user_data)
-
+        user, user_token = self.create_user(user_data)
         # CREATE MANAGER
-        UserAPIViewTest().test_signup_view(manager_data)
-        manager = User.objects.get(first_name__exact=manager_data.get('first_name'))
-        manager_role = AuthRole.objects.get(user_id__exact=manager.pk)
-        manager_role.role = AuthRole.RoleTypes.MANAGER
-        manager_role.save()
-        manager_token = UserAPIViewTest().test_login(manager_data)
-
+        manager, manager_token = self.create_manager(manager_data)
         # CREATE ADMIN
-        UserAPIViewTest().test_signup_view(admin_data)
-        admin = User.objects.get(first_name__exact=admin_data.get('first_name'))
-        admin_role = AuthRole.objects.get(user_id__exact=admin.pk)
-        admin_role.role = AuthRole.RoleTypes.ADMIN
-        admin_role.save()
-        admin_token = UserAPIViewTest().test_login(manager_data)
+        admin, admin_token = self.create_admin(admin_data)
 
-        # ADMIN CAN CRUD USER JOG
-        jog_id = JogAPIViewTest().test_user_create_jog(user_data, user, user_token)
-        JogAPIViewTest().test_user_get_jog(manager_data, jog_id, admin, admin_token)
-        JogAPIViewTest().test_user_update_jog(manager_data, jog_id, admin, admin_token)
-        JogAPIViewTest().test_user_delete_jog(manager_data, jog_id, admin, admin_token)
+        #### USER
 
-        # MANAGER CAN CRUD MANAGER
-        jog_id_2 = JogAPIViewTest().test_user_create_jog(manager_data, manager, manager_token)
-        JogAPIViewTest().test_user_get_jog(manager_data, jog_id_2, admin, admin_token)
-        JogAPIViewTest().test_user_update_jog(manager_data, jog_id_2, admin, admin_token)
-        JogAPIViewTest().test_user_delete_jog(manager_data, jog_id_2, admin, admin_token)
+        # ADMIN CAN CRUD HIS DATA
+        UserAPIViewTest().test_user_get_user(admin.pk, admin, admin_token)
+        UserAPIViewTest().test_user_update_user(admin.pk, admin, admin_token)
+        UserAPIViewTest().test_user_delete_user(admin.pk, admin, admin_token)
+
+        # CREATE ADMIN BACK
+        admin, admin_token = self.create_admin(admin_data)
+
+        # ADMIN CAN CRUD USER
+        UserAPIViewTest().test_user_get_user(user.pk, admin, admin_token)
+        UserAPIViewTest().test_user_update_user(user.pk, admin, admin_token)
+        UserAPIViewTest().test_user_delete_user(user.pk, admin, admin_token)
+
+        # CREATE USER BACK
+        user, user_token = self.create_user(user_data)
+
+        # ADMIN CAN CRUD MANAGER
+        UserAPIViewTest().test_user_get_user(manager.pk, admin, admin_token)
+        UserAPIViewTest().test_user_update_user(manager.pk, admin, admin_token)
+        UserAPIViewTest().test_user_delete_user(manager.pk, admin, admin_token)
+
+        # CREATE MANAGER BACK
+        manager, manager_token = self.create_user(manager_data)
 
         # MAKE USER ADMIN
         user_role = AuthRole.objects.get(user_id__exact=user.pk)
@@ -502,10 +647,43 @@ class EndToEndTesting(BaseAPITokenTest):
         user_role.save()
 
         # ADMIN CAN CRUD ADMIN
-        jog_id_3 = JogAPIViewTest().test_user_create_jog(user_data, user, user_token)
-        JogAPIViewTest().test_user_get_jog(manager_data, jog_id_3, admin, admin_token)
-        JogAPIViewTest().test_user_update_jog(manager_data, jog_id_3, admin, admin_token)
-        JogAPIViewTest().test_user_delete_jog(manager_data, jog_id_3, admin, admin_token)
+        UserAPIViewTest().test_user_get_user(user.pk, admin, admin_token)
+        UserAPIViewTest().test_user_update_user(user.pk, admin, admin_token)
+        UserAPIViewTest().test_user_delete_user(user.pk, admin, admin_token)
+
+        # CREATE USER BACK
+        user, user_token = self.create_user(user_data)
+
+        ##### JOGGING
+
+        # ADMIN CAN CRUD HIS DATA
+        jog_id = JogAPIViewTest().test_user_create_jog(admin, admin_token)
+        JogAPIViewTest().test_user_get_jog(jog_id, admin, admin_token)
+        JogAPIViewTest().test_user_update_jog(jog_id, admin, admin_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id, admin, admin_token)
+
+        # ADMIN CAN CRUD USER JOG
+        jog_id_2 = JogAPIViewTest().test_user_create_jog(admin, admin_token)
+        JogAPIViewTest().test_user_get_jog(jog_id_2, admin, admin_token)
+        JogAPIViewTest().test_user_update_jog(jog_id_2, admin, admin_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id_2, admin, admin_token)
+
+        # ADMIN CAN CRUD MANAGER JOG
+        jog_id_2 = JogAPIViewTest().test_user_create_jog(manager, manager_token)
+        JogAPIViewTest().test_user_get_jog(jog_id_2, admin, admin_token)
+        JogAPIViewTest().test_user_update_jog(jog_id_2, admin, admin_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id_2, admin, admin_token)
+
+        # MAKE USER ADMIN
+        user_role = AuthRole.objects.get(user_id__exact=user.pk)
+        user_role.role = AuthRole.RoleTypes.ADMIN
+        user_role.save()
+
+        # ADMIN CAN CRUD ADMIN JOG
+        jog_id_3 = JogAPIViewTest().test_user_create_jog(user, user_token)
+        JogAPIViewTest().test_user_get_jog(jog_id_3, admin, admin_token)
+        JogAPIViewTest().test_user_update_jog(jog_id_3, admin, admin_token)
+        JogAPIViewTest().test_user_delete_jog(jog_id_3, admin, admin_token)
 
 
 
@@ -513,7 +691,7 @@ class EndToEndTesting(BaseAPITokenTest):
 
 
 
-    
+
 
 
 

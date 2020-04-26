@@ -200,6 +200,7 @@ class WeeklyReportDetail(APIView):
             return Response(exception, status=status.HTTP_400_BAD_REQUEST)
 
         date = request.query_params.get('date', datetime.datetime.now())
+        date = datetime.datetime.strptime(date, '%Y-%m-%d') if date else datetime.datetime.now()
         monday = (date - datetime.timedelta(days=date.weekday())).strftime('%Y-%m-%d')
         sunday = (date + datetime.timedelta(days=6-date.weekday())).strftime('%Y-%m-%d') # date.weekday() is 0 indexed
 

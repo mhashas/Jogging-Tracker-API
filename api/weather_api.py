@@ -3,7 +3,7 @@ import requests
 class WeatherAPI:
     """Class used to connect to a weather API for retrieving the weather for a given location and date"""
 
-    API_KEY  = '1cad47e768cd6377195152f2e19bdf64'
+    API_KEY  = '7b53fb539b6033de928e5045b0630e0d'
     API_LINK = 'http://api.weatherstack.com/current'
 
     def __init__(self, api_key=None):

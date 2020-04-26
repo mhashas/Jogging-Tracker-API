@@ -117,6 +117,20 @@ class AuthRoleSerializerTest(SerializerTest):
         data = {'role': AuthRole.RoleTypes.ADMIN}
         self.assertRaisesMessage(serializers.ValidationError, self.serializer.HIGHER_ROLE_ERROR, self.serializer.validate, data)
 
+    def test_admin_can_make_role_higher(self):
+        admin = self.create_admin(self.ADMIN_DATA)
+        self.serializer.context['request'].user = admin
+        data = {'role': AuthRole.RoleTypes.ADMIN}
+
+        self.assertEqual(data, self.serializer.validate(data))
+
+    def test_manager_cannot_make_admin_role(self):
+        manager = self.create_manager(self.MANAGER_DATA)
+        self.serializer.context['request'].user = manager
+        data = {'role': AuthRole.RoleTypes.ADMIN}
+
+        self.assertRaisesMessage(serializers.ValidationError, self.serializer.HIGHER_ROLE_ERROR, self.serializer.validate, data)
+
 class JogSerializerTest(SerializerTest):
 
     def setUp(self):
